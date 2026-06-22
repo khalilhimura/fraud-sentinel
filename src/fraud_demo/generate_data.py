@@ -79,7 +79,7 @@ def _transaction(
 
 
 def _scenario_rows(start_index: int, currency: str) -> list[dict[str, Any]]:
-    base = pd.Timestamp("2026-01-15T08:00:00Z")
+    base = pd.Timestamp("2026-01-30T08:00:00Z")
     rows: list[dict[str, Any]] = []
     index = start_index
 
@@ -98,6 +98,21 @@ def _scenario_rows(start_index: int, currency: str) -> list[dict[str, Any]]:
             )
         )
         index += 1
+    rows.append(
+        _transaction(
+            index,
+            base + pd.Timedelta(minutes=45),
+            mule,
+            _account(10_050),
+            10_500,
+            currency=currency,
+            sender_country="MY",
+            receiver_country="SG",
+            is_seed=True,
+            scenario="fan_in_mule",
+        )
+    )
+    index += 1
 
     pass_through = _account(90_010)
     rows.extend(

@@ -1,3 +1,6 @@
+import json
+
+import pandas as pd
 from typer.testing import CliRunner
 
 from fraud_demo.cli import app
@@ -25,7 +28,7 @@ def test_generate_data_command_creates_csv_and_manifest(tmp_path):
     assert "100 rows" in result.output
 
 
-def test_run_command_creates_phase2_artifacts(tmp_path):
+def test_run_command_creates_phase3_artifacts(tmp_path):
     source = tmp_path / "transactions.csv"
     source.write_text(
         "\n".join(
@@ -54,8 +57,45 @@ def test_run_command_creates_phase2_artifacts(tmp_path):
 
     run_dir = tmp_path / "artifacts" / "runs" / "RUN_TEST"
     assert result.exit_code == 0
-    assert "Phase 2 complete" in result.output
+    assert "Phase 3 complete" in result.output
     assert (run_dir / "normalized_transactions.parquet").exists()
     assert (run_dir / "rejected_rows.parquet").exists()
     assert (run_dir / "data_quality_report.json").exists()
     assert (run_dir / "run_manifest.json").exists()
+    assert (run_dir / "account_features.parquet").exists()
+    assert (run_dir / "account_risk.parquet").exists()
+    assert (run_dir / "rule_evidence.parquet").exists()
+    assert (run_dir / "alerts.parquet").exists()
+    manifest = json.loads((run_dir / "run_manifest.json").read_text(encoding="utf-8"))
+    assert manifest["status"] == "phase3_complete"
+    assert manifest["phase_status"]["phase3_features_scoring"] == "complete"
+    assert manifest["artifact_paths"]["account_features"].endswith("account_features.parquet")
+
+
+def test_run_command_alerts_on_generated_scenarios(tmp_path):
+    source = tmp_path / "generated.csv"
+    artifacts = tmp_path / "artifacts"
+
+    generated = CliRunner().invoke(
+        app,
+        ["generate-data", "--rows", "120", "--output", str(source), "--seed", "42"],
+    )
+    assert generated.exit_code == 0
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "run",
+            "--input",
+            str(source),
+            "--run-id",
+            "RUN_GENERATED",
+            "--artifacts-dir",
+            str(artifacts),
+        ],
+    )
+
+    assert result.exit_code == 0
+    alerts = pd.read_parquet(artifacts / "runs" / "RUN_GENERATED" / "alerts.parquet")
+    assert len(alerts) >= 1
+    assert alerts["explanation"].str.contains("requires human review").all()
