@@ -78,6 +78,7 @@ def test_run_command_creates_phase5_artifacts(tmp_path):
     assert manifest["phase_status"]["phase3_features_scoring"] == "complete"
     assert manifest["phase_status"]["phase4_graph_clusters"] == "complete"
     assert manifest["phase_status"]["phase5_okf"] == "complete"
+    assert len(manifest["pipeline_config_hash"]) == 64
     assert manifest["artifact_paths"]["account_features"].endswith("account_features.parquet")
     assert manifest["artifact_paths"]["graph_nodes"].endswith("graph_nodes.parquet")
     assert manifest["artifact_paths"]["graph_edges"].endswith("graph_edges.parquet")

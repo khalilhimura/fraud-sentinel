@@ -210,27 +210,45 @@ def _apply_core_windows(
 
 
 def _apply_hold_time(features: pd.DataFrame, transactions: pd.DataFrame) -> None:
-    values: dict[str, float] = {}
-    for account_id in features["account_id"]:
-        inbound = transactions.loc[transactions["receiver_account_id"] == account_id].copy()
-        outbound = transactions.loc[transactions["sender_account_id"] == account_id].copy()
-        if inbound.empty or outbound.empty:
-            continue
-        inbound["event_date"] = inbound["event_timestamp"].dt.date
-        outbound["event_date"] = outbound["event_timestamp"].dt.date
-        intervals: list[float] = []
-        for event_date, group in inbound.groupby("event_date"):
-            first_inbound = group["event_timestamp"].min()
-            candidates = outbound.loc[
-                (outbound["event_date"] == event_date)
-                & (outbound["event_timestamp"] > first_inbound)
-                & (outbound["event_timestamp"] <= first_inbound + pd.Timedelta(hours=24))
-            ]
-            if not candidates.empty:
-                first_outbound = candidates["event_timestamp"].min()
-                intervals.append((first_outbound - first_inbound).total_seconds() / 60)
-        if intervals:
-            values[str(account_id)] = float(pd.Series(intervals).median())
+    inbound = transactions[["receiver_account_id", "event_timestamp"]].dropna().copy()
+    outbound = transactions[["sender_account_id", "event_timestamp"]].dropna().copy()
+    if inbound.empty or outbound.empty:
+        return
+
+    inbound["event_date"] = inbound["event_timestamp"].dt.date
+    outbound["event_date"] = outbound["event_timestamp"].dt.date
+    first_inbound = (
+        inbound.groupby(["receiver_account_id", "event_date"], as_index=False)["event_timestamp"]
+        .min()
+        .rename(
+            columns={
+                "receiver_account_id": "account_id",
+                "event_timestamp": "first_inbound_at",
+            }
+        )
+    )
+    outbound = outbound.rename(
+        columns={
+            "sender_account_id": "account_id",
+            "event_timestamp": "outbound_at",
+        }
+    )
+    candidates = first_inbound.merge(outbound, on=["account_id", "event_date"], how="inner")
+    candidates = candidates.loc[
+        (candidates["outbound_at"] > candidates["first_inbound_at"])
+        & (candidates["outbound_at"] <= candidates["first_inbound_at"] + pd.Timedelta(hours=24))
+    ]
+    if candidates.empty:
+        return
+
+    daily_intervals = candidates.groupby(["account_id", "event_date"], as_index=False).agg(
+        first_inbound_at=("first_inbound_at", "first"),
+        first_outbound_at=("outbound_at", "min"),
+    )
+    daily_intervals["hold_minutes"] = (
+        daily_intervals["first_outbound_at"] - daily_intervals["first_inbound_at"]
+    ).dt.total_seconds() / 60
+    values = daily_intervals.groupby("account_id")["hold_minutes"].median()
     features["hold_time_proxy_minutes"] = features["account_id"].map(values)
 
 
@@ -352,16 +370,48 @@ def _apply_counterparty_features(
         features["account_id"].map(concentration).fillna(0.0)
     )
 
-    outbound = last_7d.groupby("sender_account_id")["receiver_account_id"].apply(set)
-    inbound = last_7d.groupby("receiver_account_id")["sender_account_id"].apply(set)
-    ratios: dict[str, float] = {}
-    for account_id in features["account_id"]:
-        out_set = outbound.get(account_id, set())
-        in_set = inbound.get(account_id, set())
-        all_counterparties = out_set | in_set
-        ratios[str(account_id)] = (
-            len(out_set & in_set) / len(all_counterparties) if all_counterparties else 0.0
-        )
+    directed_pairs = (
+        last_7d[["sender_account_id", "receiver_account_id"]]
+        .dropna()
+        .astype(str)
+        .drop_duplicates()
+    )
+    if directed_pairs.empty:
+        return
+
+    all_counterparties = pd.concat(
+        [
+            directed_pairs.rename(
+                columns={
+                    "sender_account_id": "account_id",
+                    "receiver_account_id": "counterparty_id",
+                }
+            ),
+            directed_pairs.rename(
+                columns={
+                    "receiver_account_id": "account_id",
+                    "sender_account_id": "counterparty_id",
+                }
+            ),
+        ],
+        ignore_index=True,
+    )
+    counterparty_counts = all_counterparties.groupby("account_id")["counterparty_id"].nunique()
+    reversed_pairs = directed_pairs.rename(
+        columns={
+            "sender_account_id": "receiver_account_id",
+            "receiver_account_id": "sender_account_id",
+        }
+    )
+    reciprocal_pairs = directed_pairs.merge(
+        reversed_pairs,
+        on=["sender_account_id", "receiver_account_id"],
+        how="inner",
+    )
+    reciprocal_counts = reciprocal_pairs.groupby("sender_account_id")[
+        "receiver_account_id"
+    ].nunique()
+    ratios = (reciprocal_counts / counterparty_counts).fillna(0.0)
     features["reciprocal_transfer_ratio_7d"] = features["account_id"].map(ratios).fillna(0.0)
 
 

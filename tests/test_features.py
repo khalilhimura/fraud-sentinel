@@ -137,3 +137,26 @@ def test_compute_account_features_marks_missing_optional_sources_as_unavailable(
     assert pd.isna(features.loc["ACC_A", "shared_device_account_count_30d"])
     assert pd.isna(features.loc["ACC_A", "shared_ip_account_count_30d"])
     assert pd.isna(features.loc["ACC_A", "account_age_days"])
+
+
+def test_compute_account_features_uses_vectorizable_hold_time_and_reciprocal_ratio(
+    tmp_path: Path,
+):
+    run_dir = tmp_path / "artifacts" / "runs" / "RUN_FEATURE_VECTORS"
+    _write_normalized(
+        run_dir,
+        [
+            _row("TX_IN_DAY1", "2026-01-07T08:00:00Z", "ACC_SRC_1", "ACC_HUB", 100),
+            _row("TX_OUT_DAY1", "2026-01-07T08:30:00Z", "ACC_HUB", "ACC_A", 50),
+            _row("TX_IN_DAY2", "2026-01-08T09:00:00Z", "ACC_SRC_2", "ACC_HUB", 100),
+            _row("TX_OUT_DAY2", "2026-01-08T10:30:00Z", "ACC_HUB", "ACC_B", 50),
+            _row("TX_A_BACK", "2026-01-08T11:00:00Z", "ACC_A", "ACC_HUB", 20),
+            _row("TX_ONE_WAY", "2026-01-08T12:00:00Z", "ACC_HUB", "ACC_C", 20),
+        ],
+    )
+
+    result = compute_account_features(run_dir)
+
+    features = pd.read_parquet(result.account_features_path).set_index("account_id")
+    assert features.loc["ACC_HUB", "hold_time_proxy_minutes"] == 60
+    assert features.loc["ACC_HUB", "reciprocal_transfer_ratio_7d"] == 0.2
