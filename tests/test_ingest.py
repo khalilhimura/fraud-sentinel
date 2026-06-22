@@ -109,3 +109,43 @@ def test_ingest_transactions_fails_on_missing_required_column(tmp_path: Path):
 
     with pytest.raises(SchemaValidationError, match="amount"):
         ingest_transactions([source], run_id="RUN_MISSING", artifacts_dir=tmp_path / "artifacts")
+
+
+def test_ingest_transactions_accepts_mixed_valid_timestamp_formats(tmp_path: Path):
+    source_a = tmp_path / "transactions_a.csv"
+    source_b = tmp_path / "transactions_b.csv"
+    _write_csv(
+        source_a,
+        [
+            {
+                "transaction_id": "TX_SPACE_OFFSET",
+                "event_timestamp": "2026-01-01 00:00:00+00:00",
+                "sender_account_id": "ACC_A",
+                "receiver_account_id": "ACC_B",
+                "amount": "10",
+                "currency": "MYR",
+            }
+        ],
+    )
+    _write_csv(
+        source_b,
+        [
+            {
+                "transaction_id": "TX_ISO_Z",
+                "event_timestamp": "2026-01-01T00:01:00Z",
+                "sender_account_id": "ACC_B",
+                "receiver_account_id": "ACC_C",
+                "amount": "20",
+                "currency": "MYR",
+            }
+        ],
+    )
+
+    result = ingest_transactions(
+        [source_a, source_b],
+        run_id="RUN_MIXED_TIMESTAMPS",
+        artifacts_dir=tmp_path / "artifacts",
+    )
+
+    assert result.valid_row_count == 2
+    assert result.rejected_row_count == 0

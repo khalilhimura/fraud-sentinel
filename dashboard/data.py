@@ -170,6 +170,7 @@ class DashboardArtifacts:
     frames: dict[str, pd.DataFrame]
     okf_manifest: dict[str, Any]
     okf_validation_report: dict[str, Any]
+    monitoring_summary: dict[str, Any]
     missing_artifacts: tuple[str, ...]
     okf_bundle_path: Path
     config: DashboardConfig
@@ -358,6 +359,16 @@ def _load_json_artifact(path: Path, key: str, missing: list[str]) -> dict[str, A
     return loaded if isinstance(loaded, dict) else {}
 
 
+def _load_optional_json_artifact(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    try:
+        loaded = _read_json_cached(str(path))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return loaded if isinstance(loaded, dict) else {}
+
+
 def _load_parquet_artifact(
     path: Path,
     key: str,
@@ -432,6 +443,13 @@ def load_dashboard_artifacts(
         "okf_validation_report",
         missing,
     )
+    monitoring_summary_path = _resolve_artifact_path(
+        manifest,
+        "monitoring_summary",
+        resolved_run_dir,
+        "monitoring_summary.json",
+    )
+    monitoring_summary = _load_optional_json_artifact(monitoring_summary_path)
 
     return DashboardArtifacts(
         run_dir=resolved_run_dir,
@@ -440,6 +458,7 @@ def load_dashboard_artifacts(
         frames=frames,
         okf_manifest=okf_manifest,
         okf_validation_report=okf_validation_report,
+        monitoring_summary=monitoring_summary,
         missing_artifacts=tuple(dict.fromkeys(missing)),
         okf_bundle_path=okf_bundle_path,
         config=config,
@@ -879,6 +898,76 @@ def build_okf_summary(artifacts: DashboardArtifacts) -> dict[str, object]:
         "validation_warnings": validation.get("warnings") or [],
         "hard_errors": validation.get("hard_errors") or [],
         "bundle_path": str(artifacts.okf_bundle_path),
+    }
+
+
+def build_monitoring_summary(artifacts: DashboardArtifacts) -> dict[str, object]:
+    """Build monitoring delta data from prepared Parquet and JSON artifacts."""
+
+    changes = artifacts.frames.get("alert_changes", pd.DataFrame()).copy()
+    summary = dict(artifacts.monitoring_summary or {})
+    categories = [
+        "new",
+        "severity_increased",
+        "severity_decreased",
+        "unchanged",
+        "resolved_below_threshold",
+    ]
+    change_counts = {category: 0 for category in categories}
+    if not changes.empty and "change_category" in changes.columns:
+        change_counts.update(
+            {
+                str(category): int(count)
+                for category, count in changes["change_category"].value_counts().items()
+            }
+        )
+    severity_increased = (
+        changes.loc[
+            changes.get("change_category", pd.Series(dtype=str))
+            .astype(str)
+            .eq("severity_increased")
+        ].copy()
+        if not changes.empty
+        else pd.DataFrame()
+    )
+    if not severity_increased.empty:
+        severity_increased["current_risk_score"] = pd.to_numeric(
+            severity_increased.get("current_risk_score"),
+            errors="coerce",
+        ).fillna(0)
+        severity_increased = severity_increased.sort_values(
+            ["current_risk_score", "account_id"],
+            ascending=[False, True],
+            kind="mergesort",
+        ).reset_index(drop=True)
+    manifest = artifacts.manifest
+    artifact_paths = manifest.get("artifact_paths") or {}
+    return {
+        "run_id": str(summary.get("run_id") or manifest.get("run_id") or artifacts.run_dir.name),
+        "prior_run_id": summary.get("prior_run_id", manifest.get("prior_run_id")),
+        "processed_file_count": int(
+            summary.get("processed_file_count", manifest.get("processed_file_count", 0)) or 0
+        ),
+        "skipped_file_count": int(
+            summary.get("skipped_file_count", manifest.get("skipped_file_count", 0)) or 0
+        ),
+        "failed_file_count": int(
+            summary.get("failed_file_count", manifest.get("failed_file_count", 0)) or 0
+        ),
+        "new_transaction_count": int(
+            summary.get("new_transaction_count", manifest.get("new_transaction_count", 0)) or 0
+        ),
+        "change_counts": change_counts,
+        "alert_changes": changes.reset_index(drop=True),
+        "severity_increased_accounts": severity_increased,
+        "processed_files": summary.get("processed_files") or [],
+        "skipped_files": summary.get("skipped_files") or [],
+        "okf_monitoring_log": str(
+            summary.get("okf_monitoring_log") or artifact_paths.get("monitoring_log") or ""
+        ),
+        "okf_bundle_log": str(
+            summary.get("okf_bundle_log") or artifact_paths.get("okf_bundle_log") or ""
+        ),
     }
 
 

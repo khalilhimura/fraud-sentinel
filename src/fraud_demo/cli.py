@@ -24,6 +24,7 @@ from fraud_demo.manifests import (
     build_phase5_manifest,
     write_run_manifest,
 )
+from fraud_demo.monitoring import MonitoringError, process_inbox
 from fraud_demo.okf_exporter import export_okf_bundle
 from fraud_demo.okf_validator import validate_okf_bundle
 from fraud_demo.profile import profile_run
@@ -261,8 +262,23 @@ def validate_okf(
 def monitor(
     inbox: Annotated[
         Path,
-        typer.Option("--inbox", help="Directory containing incoming CSV files."),
+        typer.Option(
+            "--inbox",
+            exists=True,
+            file_okay=False,
+            dir_okay=True,
+            readable=True,
+            help="Directory containing incoming CSV files.",
+        ),
     ],
+    artifacts_dir: Annotated[
+        Path,
+        typer.Option("--artifacts-dir", help="Artifacts root directory."),
+    ] = Path("artifacts"),
+    run_id: Annotated[
+        str | None,
+        typer.Option("--run-id", help="Monitoring run identifier."),
+    ] = None,
     force: Annotated[
         bool,
         typer.Option("--force", help="Reprocess files already seen."),
@@ -270,8 +286,41 @@ def monitor(
 ) -> None:
     """Process new files from the incoming directory."""
 
-    _ = (inbox, force)
-    _phase_exit("File-based monitoring", 7)
+    started_at = perf_counter()
+    typer.echo(f"Monitoring discovery: inbox={inbox}")
+    try:
+        result = process_inbox(
+            inbox,
+            artifacts_dir=artifacts_dir,
+            force=force,
+            run_id=run_id,
+        )
+    except MonitoringError as exc:
+        typer.echo(f"Monitoring failed: {exc}")
+        raise typer.Exit(1) from exc
+
+    elapsed = round(perf_counter() - started_at, 3)
+    if not result.run_created:
+        typer.echo(
+            f"Monitoring complete in {elapsed}s. "
+            f"No eligible files. Skipped files: {result.skipped_file_count}. "
+            f"State: {result.processed_state_path}"
+        )
+        return
+
+    typer.echo("Monitoring stages:")
+    for stage, seconds in result.stage_timings_seconds.items():
+        typer.echo(f"  {stage}: {seconds}s")
+    typer.echo(
+        f"Monitoring complete for {result.run_id} in {elapsed}s. "
+        f"Processed files: {result.processed_file_count}. "
+        f"Skipped files: {result.skipped_file_count}. "
+        f"New valid transactions: {result.new_transaction_count}. "
+        f"Alert changes: {result.alert_change_counts}."
+    )
+    typer.echo("Output paths:")
+    for label, path in result.output_paths.items():
+        typer.echo(f"  {label}: {path}")
 
 
 def main() -> None:

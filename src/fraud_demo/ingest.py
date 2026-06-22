@@ -155,6 +155,7 @@ def ingest_transactions(
     normalized["event_timestamp"] = pd.to_datetime(
         normalized["event_timestamp"],
         errors="coerce",
+        format="mixed",
         utc=True,
     )
     normalized["amount"] = pd.to_numeric(normalized["amount"], errors="coerce")
