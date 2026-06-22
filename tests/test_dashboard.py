@@ -11,6 +11,7 @@ import pandas as pd
 from dashboard.data import (
     build_account_investigation,
     build_bounded_graph,
+    build_monitoring_summary,
     build_okf_summary,
     build_overview_metrics,
     filter_alerts,
@@ -564,6 +565,55 @@ def test_okf_summary_and_markdown_preview(tmp_path):
     assert summary["bundle_path"] == str(tmp_path / "okf_bundle")
     assert "Account ACC_MULE" in preview
     assert "human review" in preview
+
+
+def test_monitoring_summary_uses_prepared_delta_artifacts(tmp_path, monkeypatch):
+    run_dir = _write_dashboard_run(tmp_path)
+    pd.DataFrame(
+        [
+            {
+                "run_id": "RUN_DASH",
+                "prior_run_id": "RUN_OLD",
+                "account_id": "ACC_MULE",
+                "change_category": "severity_increased",
+                "current_risk_level": "Critical",
+                "current_risk_score": 85,
+            },
+            {
+                "run_id": "RUN_DASH",
+                "prior_run_id": "RUN_OLD",
+                "account_id": "ACC_HIGH",
+                "change_category": "unchanged",
+                "current_risk_level": "High",
+                "current_risk_score": 55,
+            },
+        ]
+    ).to_parquet(run_dir / "alert_changes.parquet", index=False)
+    (run_dir / "monitoring_summary.json").write_text(
+        json.dumps(
+            {
+                "processed_file_count": 1,
+                "skipped_file_count": 0,
+                "failed_file_count": 0,
+                "new_transaction_count": 2,
+                "okf_monitoring_log": str(tmp_path / "artifacts" / "monitoring" / "log.jsonl"),
+            }
+        ),
+        encoding="utf-8",
+    )
+    config = _write_dashboard_config(tmp_path)
+
+    def fail_read_csv(*args, **kwargs):
+        raise AssertionError("raw CSV read")
+
+    monkeypatch.setattr(pd, "read_csv", fail_read_csv)
+    summary = build_monitoring_summary(load_dashboard_artifacts(run_dir, config))
+
+    assert summary["change_counts"]["severity_increased"] == 1
+    assert summary["change_counts"]["unchanged"] == 1
+    assert summary["severity_increased_accounts"]["account_id"].tolist() == ["ACC_MULE"]
+    assert summary["new_transaction_count"] == 2
+    assert summary["processed_file_count"] == 1
 
 
 def test_dashboard_pages_import_without_crashing():

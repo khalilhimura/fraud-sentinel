@@ -184,3 +184,48 @@ def build_phase5_manifest(
         }
     )
     return manifest
+
+
+def build_phase7_manifest(
+    phase5_manifest: dict[str, Any],
+    monitoring_result: Any,
+    stage_timings_seconds: dict[str, float],
+) -> dict[str, Any]:
+    """Extend a Phase 5 manifest with Phase 7 monitoring artifacts."""
+
+    manifest = dict(phase5_manifest)
+    artifact_paths = dict(manifest.get("artifact_paths", {}))
+    if monitoring_result.processed_state_path is not None:
+        artifact_paths["processed_files_state"] = str(monitoring_result.processed_state_path)
+    if monitoring_result.monitoring_log_path is not None:
+        artifact_paths["monitoring_log"] = str(monitoring_result.monitoring_log_path)
+    if monitoring_result.monitoring_summary_path is not None:
+        artifact_paths["monitoring_summary"] = str(monitoring_result.monitoring_summary_path)
+    if monitoring_result.alert_changes_path is not None:
+        artifact_paths["alert_changes"] = str(monitoring_result.alert_changes_path)
+    if monitoring_result.okf_log_path is not None:
+        artifact_paths["okf_bundle_log"] = str(monitoring_result.okf_log_path)
+
+    phase_status = dict(manifest.get("phase_status", {}))
+    phase_status["phase7_monitoring"] = "complete"
+
+    timings = dict(manifest.get("stage_timings_seconds", {}))
+    timings.update(stage_timings_seconds)
+
+    manifest.update(
+        {
+            "status": "phase7_complete",
+            "completed_at": datetime.now(UTC).isoformat(),
+            "monitoring_run": True,
+            "prior_run_id": monitoring_result.prior_run_id,
+            "processed_file_count": monitoring_result.processed_file_count,
+            "skipped_file_count": monitoring_result.skipped_file_count,
+            "failed_file_count": monitoring_result.failed_file_count,
+            "new_transaction_count": monitoring_result.new_transaction_count,
+            "alert_change_counts": monitoring_result.alert_change_counts,
+            "stage_timings_seconds": timings,
+            "phase_status": phase_status,
+            "artifact_paths": artifact_paths,
+        }
+    )
+    return manifest

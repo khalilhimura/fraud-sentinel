@@ -2,7 +2,7 @@
 
 ## Current Scope
 
-Phase 0 through Phase 6 for the Agentic AI mule-account fraud detection demo.
+Phase 0 through Phase 7 for the Agentic AI mule-account fraud detection demo.
 
 ## Phase Tracker
 
@@ -15,7 +15,7 @@ Phase 0 through Phase 6 for the Agentic AI mule-account fraud detection demo.
 | Phase 4: Graph and clusters | Complete | Filtered graph node and edge artifacts, suspicious connected components, bounded cycle enrichment, cluster summaries, cluster ID propagation, DuckDB registration, CLI wiring, and manifest updates are implemented. |
 | Phase 5: OKF exporter and validator | Complete | OKF v0.1 bundle hierarchy, concept templates, relative Markdown links, typed relation frontmatter extension, validator, CLI wiring, manifest updates, and validation reports are implemented. |
 | Phase 6: Dashboard | Complete | Streamlit app, cached prepared-artifact loading, overview, alert queue, account investigation, bounded network explorer, OKF bundle, monitoring pages, visual QA, and dashboard tests are implemented. |
-| Phase 7: Monitoring | Not started | Planned after full pipeline. |
+| Phase 7: Monitoring | Complete | File-based micro-batch monitor, processed-file state, retry/force behavior, full-snapshot recomputation, alert deltas, OKF monitoring log updates, dashboard delta helpers, CLI wiring, and tests are implemented. |
 | Phase 8: Performance and demo hardening | Not started | Planned after MVP pipeline. |
 | Phase 9: Final verification | Not started | Planned after implementation phases. |
 
@@ -48,6 +48,11 @@ Phase 0 through Phase 6 for the Agentic AI mule-account fraud detection demo.
 - Phase 6 uses the current single-run manifest for Monitoring. Phase 7 remains responsible for rerun, delta, and alert-change monitoring logic.
 - Phase 6 graph helpers enforce `config/dashboard.yaml` node, edge, and counterparty caps before building Plotly figures for browser rendering.
 - Phase 6 keeps app and page language framed as suspicious indicators requiring human review, not confirmed fraud judgments.
+- Phase 7 stores processed-file state at `artifacts/monitoring/processed_files.json` and appends monitoring history to `artifacts/monitoring/monitoring_log.jsonl`.
+- Phase 7 full-snapshot monitoring uses the latest successful run's normalized Parquet artifact plus eligible inbox CSV files. A temporary prior-snapshot CSV is generated under `artifacts/monitoring/snapshots/` for deterministic ingestion.
+- Phase 7 compares alerts by stable `account_id` because alert IDs include run IDs.
+- Phase 7 `new_transaction_count` counts valid normalized rows from eligible inbox files after cross-file transaction ID deduplication.
+- Ingestion accepts mixed valid timestamp formats so prior snapshot CSV timestamps and incoming ISO/Z timestamps can be processed together.
 
 ## Verification Log
 
@@ -106,6 +111,23 @@ Completed for Phase 6 on 2026-06-23:
 - Visual QA screenshot captured at `/private/tmp/fraud-sentinel-phase6-network-explorer-final.png`; provenance identifiers wrap inside compact cards instead of truncating, and labels/values render on the light dashboard surface.
 - Note: PyArrow printed macOS sandbox CPU-cache detection warnings during the smoke run, but the command exited successfully and artifacts were created. The local Streamlit server required approved port binding under the sandbox.
 
+Completed for Phase 7 on 2026-06-23:
+
+- `docs/superpowers/specs/2026-06-23-phase-7-monitoring-design.md` and `docs/superpowers/plans/2026-06-23-phase-7-monitoring.md` were added before implementation.
+- `.venv/bin/pytest tests/test_monitoring.py tests/test_dashboard.py::test_monitoring_summary_uses_prepared_delta_artifacts -q` - passed; 15 tests passed for processed-file state, skip/force/retry behavior, deduplication, alert comparison, OKF log updates, CLI monitor paths, and dashboard monitoring summary preparation.
+- `.venv/bin/pytest tests/test_ingest.py::test_ingest_transactions_accepts_mixed_valid_timestamp_formats -q` - passed; regression covers mixed prior-snapshot and incoming ISO timestamp formats.
+- `.venv/bin/pytest -q` - passed; 56 tests passed.
+- `.venv/bin/ruff check .` - passed; all checks passed.
+- `.venv/bin/python -m fraud_demo generate-data --rows 240 --output /private/tmp/fraud-sentinel-phase7-baseline.csv --seed 42` - passed; generated baseline CSV and scenario manifest.
+- `.venv/bin/python -m fraud_demo run --input /private/tmp/fraud-sentinel-phase7-baseline.csv --run-id RUN_PHASE7_BASELINE --artifacts-dir /private/tmp/fraud-sentinel-phase7-artifacts --force` - passed; wrote Phase 2 through Phase 5 baseline artifacts, generated 1 alert, identified 1 suspicious cluster, and generated 27 OKF concepts.
+- `.venv/bin/python -m fraud_demo generate-data --rows 80 --output /private/tmp/fraud-sentinel-phase7-inbox-unique/transactions_delta_unique.csv --seed 43` plus deterministic transaction ID prefixing - passed; prepared a unique synthetic delta CSV.
+- `.venv/bin/python -m fraud_demo monitor --inbox /private/tmp/fraud-sentinel-phase7-inbox-unique --artifacts-dir /private/tmp/fraud-sentinel-phase7-artifacts --run-id RUN_PHASE7_MONITOR_UNIQUE --force` - passed; processed 1 file, skipped 0, recorded 80 new valid transactions, and wrote Phase 7 artifacts.
+- Phase 7 smoke manifest status: `phase7_complete`; `phase_status.phase7_monitoring` is `complete`; `processed_file_count` is 1; `new_transaction_count` is 80; `alert_change_counts` is `{"new": 1, "severity_increased": 0, "severity_decreased": 0, "unchanged": 1, "resolved_below_threshold": 0}`; `stage_timings_seconds` includes `monitor_discovery`, `monitor_snapshot`, `alert_comparison`, and `monitoring_state_update`.
+- Phase 7 smoke artifacts verified: `/private/tmp/fraud-sentinel-phase7-artifacts/monitoring/processed_files.json`, `/private/tmp/fraud-sentinel-phase7-artifacts/monitoring/monitoring_log.jsonl`, `/private/tmp/fraud-sentinel-phase7-artifacts/runs/RUN_PHASE7_MONITOR_UNIQUE/monitoring_summary.json`, and `/private/tmp/fraud-sentinel-phase7-artifacts/runs/RUN_PHASE7_MONITOR_UNIQUE/alert_changes.parquet`.
+- Dashboard monitoring helper smoke passed against `RUN_PHASE7_MONITOR_UNIQUE`; it reported 1 processed file, 0 skipped files, 0 failed files, 80 new transactions, 1 new alert, and 1 unchanged alert from prepared Parquet/JSON artifacts.
+- `rg -n "requests|httpx|openai|anthropic|api_key|read_csv" src/fraud_demo dashboard tests` - passed safety scan; no external model/API calls were introduced. Production `read_csv` remains limited to ingestion; dashboard `read_csv` occurrences are test guards only.
+- Note: PyArrow printed macOS sandbox CPU-cache detection warnings during Parquet reads/writes, but all commands exited successfully and artifacts were created.
+
 ## Next Phase
 
-Phase 7 should implement monitoring rerun and delta logic after the Phase 6 dashboard.
+Phase 8 should focus on performance and demo hardening after the Phase 7 monitoring implementation.
