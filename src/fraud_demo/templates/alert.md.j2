@@ -1,8 +1,45 @@
 ---
-type: Fraud Alert
+{{ frontmatter }}
 ---
 
-# Alert Placeholder
+# Alert {{ alert_id | safe_text }}
 
-Scheduled for Phase 5.
+## Risk Summary
 
+This alert is a suspicious indicator requiring human review. It is not a confirmed fraud judgment.
+
+- Risk level: **{{ risk_level }}**
+- Risk score: **{{ risk_score }}**
+- Related account: {{ account_link }}
+{% if cluster_link %}
+- Related cluster: {{ cluster_link }}
+{% endif %}
+
+## Triggered Rule Explanations
+
+{% for link in signal_links %}
+- {{ link }}
+{% else %}
+- No triggered signal links were exported.
+{% endfor %}
+
+## Evidence
+
+| Signal | Observed values | Thresholds | Explanation |
+|---|---|---|---|
+{% for item in evidence %}
+| {{ item.rule_label }} | {{ item.feature_values }} | {{ item.thresholds }} | {{ item.explanation }} |
+{% else %}
+| None | None | None | No triggered evidence rows were exported. |
+{% endfor %}
+
+## Suggested Human Review Steps
+
+1. Review the linked account and cluster concepts.
+2. Check aggregate flow patterns against approved investigation procedures.
+3. Record an analyst disposition outside the generated analytics artifacts.
+
+## Provenance
+
+- {{ run_link }}
+- {{ runbook_link }}

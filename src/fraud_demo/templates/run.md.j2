@@ -1,8 +1,14 @@
 ---
-type: Fraud Pipeline Run
+{{ frontmatter }}
 ---
 
-# Run Placeholder
+# {{ run_id | safe_text }}
 
-Scheduled for Phase 5.
+## Provenance
 
+- Status: **{{ status }}**
+- Source data fingerprint: `{{ source_data_fingerprint }}`
+- Rules config hash: `{{ rules_config_hash }}`
+- Related dataset/run: {{ dataset_link }}
+
+This concept records run-level provenance for suspicious indicators requiring human review.

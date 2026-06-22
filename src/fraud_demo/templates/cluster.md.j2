@@ -1,8 +1,35 @@
 ---
-type: Fraud Cluster
+{{ frontmatter }}
 ---
 
-# Cluster Placeholder
+# Cluster {{ cluster_id | safe_text }}
 
-Scheduled for Phase 5.
+## Cluster Summary
 
+This cluster is a suspicious indicator requiring human review. It is not a confirmed fraud judgment.
+
+- Account count: **{{ account_count }}**
+- Suspicious account count: **{{ suspicious_account_count }}**
+- Total observed transfer amount: **{{ total_transfer_amount }}**
+- Maximum risk score: **{{ max_risk_score }}**
+- Short cycle detected: **{{ short_cycle_detected }}**
+
+## Key Accounts
+
+{% for link in member_links %}
+- {{ link }}
+{% else %}
+- No member account links were exported within configured limits.
+{% endfor %}
+
+## Related Alerts
+
+{% for link in alert_links %}
+- {{ link }}
+{% else %}
+- No related alert links were exported.
+{% endfor %}
+
+## Limitations
+
+The cluster is based on bounded graph artifacts and aggregate transfer edges. It supports investigation triage only.
