@@ -4,16 +4,24 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from pathlib import Path
+from time import perf_counter
 from typing import Annotated
 
 import typer
 
 from fraud_demo import __version__
+from fraud_demo.alerts import generate_alerts
+from fraud_demo.features import compute_account_features
 from fraud_demo.generate_data import generate_synthetic_transactions
 from fraud_demo.ingest import ingest_transactions
 from fraud_demo.logging import configure_logging
-from fraud_demo.manifests import build_phase2_manifest, write_run_manifest
+from fraud_demo.manifests import (
+    build_phase2_manifest,
+    build_phase3_manifest,
+    write_run_manifest,
+)
 from fraud_demo.profile import profile_run
+from fraud_demo.scoring import score_accounts
 
 app = typer.Typer(
     add_completion=False,
@@ -146,13 +154,36 @@ def run_pipeline(
         force=force,
     )
     report = profile_run(ingestion.run_dir, ingestion.source_data_fingerprint)
-    manifest = build_phase2_manifest(ingestion, report)
+    phase2_manifest = build_phase2_manifest(ingestion, report)
+
+    stage_timings: dict[str, float] = {}
+    started_at = perf_counter()
+    feature_result = compute_account_features(ingestion.run_dir)
+    stage_timings["feature_engineering"] = round(perf_counter() - started_at, 6)
+
+    started_at = perf_counter()
+    scoring_result = score_accounts(ingestion.run_dir)
+    stage_timings["scoring"] = round(perf_counter() - started_at, 6)
+
+    started_at = perf_counter()
+    alert_result = generate_alerts(ingestion.run_dir)
+    stage_timings["alert_generation"] = round(perf_counter() - started_at, 6)
+
+    manifest = build_phase3_manifest(
+        phase2_manifest,
+        feature_result,
+        scoring_result,
+        alert_result,
+        stage_timings,
+    )
     manifest_path = write_run_manifest(ingestion.run_dir, manifest)
     typer.echo(
-        f"Phase 2 complete for {run_id}. "
+        f"Phase 3 complete for {run_id}. "
         f"Valid rows: {ingestion.valid_row_count}. "
         f"Rejected rows: {ingestion.rejected_row_count}. "
         f"Duplicate rows removed: {ingestion.duplicate_row_count}. "
+        f"Accounts scored: {feature_result.account_count}. "
+        f"Alerts: {alert_result.alert_count}. "
         f"Manifest: {manifest_path}"
     )
 

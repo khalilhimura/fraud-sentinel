@@ -64,3 +64,43 @@ def write_run_manifest(run_dir: Path | str, manifest: dict[str, Any]) -> Path:
         encoding="utf-8",
     )
     return manifest_path
+
+
+def build_phase3_manifest(
+    phase2_manifest: dict[str, Any],
+    feature_result: Any,
+    scoring_result: Any,
+    alert_result: Any,
+    stage_timings_seconds: dict[str, float],
+) -> dict[str, Any]:
+    """Extend a Phase 2 manifest with Phase 3 feature, scoring, and alert artifacts."""
+
+    manifest = dict(phase2_manifest)
+    artifact_paths = dict(manifest.get("artifact_paths", {}))
+    artifact_paths.update(
+        {
+            "account_features": str(feature_result.account_features_path),
+            "account_risk": str(scoring_result.account_risk_path),
+            "rule_evidence": str(scoring_result.rule_evidence_path),
+            "alerts": str(alert_result.alerts_path),
+        }
+    )
+    phase_status = dict(manifest.get("phase_status", {}))
+    phase_status["phase3_features_scoring"] = "complete"
+
+    timings = dict(manifest.get("stage_timings_seconds", {}))
+    timings.update(stage_timings_seconds)
+
+    manifest.update(
+        {
+            "status": "phase3_complete",
+            "completed_at": datetime.now(UTC).isoformat(),
+            "distinct_account_count": feature_result.account_count,
+            "alert_count": alert_result.alert_count,
+            "rules_config_hash": scoring_result.rules_config_hash,
+            "stage_timings_seconds": timings,
+            "phase_status": phase_status,
+            "artifact_paths": artifact_paths,
+        }
+    )
+    return manifest

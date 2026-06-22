@@ -14,6 +14,7 @@ class RuleDefinition(BaseModel):
     """One configurable fraud rule definition."""
 
     enabled: bool = True
+    mandatory: bool = False
     weight: int = Field(ge=0)
     description: str
     required_features: list[str] = Field(default_factory=list)

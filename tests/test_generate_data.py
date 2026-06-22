@@ -51,3 +51,15 @@ def test_generate_synthetic_transactions_is_reproducible(tmp_path: Path):
     generate_synthetic_transactions(rows=120, output=second, seed=42)
 
     assert file_sha256(first) == file_sha256(second)
+
+
+def test_synthetic_scenario_rows_are_inside_feature_window(tmp_path: Path):
+    output = tmp_path / "transactions.csv"
+
+    generate_synthetic_transactions(rows=120, output=output, seed=42)
+
+    frame = pd.read_csv(output)
+    timestamps = pd.to_datetime(frame["event_timestamp"], utc=True)
+    snapshot = timestamps.max()
+    scenario_times = timestamps.loc[frame["synthetic_scenario"].fillna("").ne("")]
+    assert scenario_times.min() >= snapshot - pd.Timedelta(days=7)
