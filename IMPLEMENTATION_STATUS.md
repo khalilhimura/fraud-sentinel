@@ -2,7 +2,7 @@
 
 ## Current Scope
 
-Phase 0 through Phase 5 for the Agentic AI mule-account fraud detection demo.
+Phase 0 through Phase 6 for the Agentic AI mule-account fraud detection demo.
 
 ## Phase Tracker
 
@@ -14,7 +14,7 @@ Phase 0 through Phase 5 for the Agentic AI mule-account fraud detection demo.
 | Phase 3: Features and scoring | Complete | Account feature engineering, configurable rule scoring, rule evidence records, account risk artifacts, alerts, Phase 3 manifest updates, CLI wiring, and generated-scenario alert regression coverage are implemented. |
 | Phase 4: Graph and clusters | Complete | Filtered graph node and edge artifacts, suspicious connected components, bounded cycle enrichment, cluster summaries, cluster ID propagation, DuckDB registration, CLI wiring, and manifest updates are implemented. |
 | Phase 5: OKF exporter and validator | Complete | OKF v0.1 bundle hierarchy, concept templates, relative Markdown links, typed relation frontmatter extension, validator, CLI wiring, manifest updates, and validation reports are implemented. |
-| Phase 6: Dashboard | Not started | Planned after prepared artifacts exist. |
+| Phase 6: Dashboard | Complete | Streamlit app, cached prepared-artifact loading, overview, alert queue, account investigation, bounded network explorer, OKF bundle, monitoring pages, visual QA, and dashboard tests are implemented. |
 | Phase 7: Monitoring | Not started | Planned after full pipeline. |
 | Phase 8: Performance and demo hardening | Not started | Planned after MVP pipeline. |
 | Phase 9: Final verification | Not started | Planned after implementation phases. |
@@ -44,6 +44,10 @@ Phase 0 through Phase 5 for the Agentic AI mule-account fraud detection demo.
 - Phase 5 updates `okf_concept_id` in exported `account_risk.parquet` rows and `alerts.parquet` rows so the dashboard can link directly to OKF concepts.
 - Phase 5 generates account, alert, cluster, signal, run, dataset, and runbook concepts, plus index files for optional PRD directories. It does not generate one Markdown file per raw transaction.
 - Phase 5 keeps typed relations in frontmatter as a producer extension and uses standard relative Markdown links as the portable graph surface.
+- Phase 6 reads prepared Parquet, JSON, and OKF Markdown artifacts only. The dashboard helper layer does not read raw CSV files on page render.
+- Phase 6 uses the current single-run manifest for Monitoring. Phase 7 remains responsible for rerun, delta, and alert-change monitoring logic.
+- Phase 6 graph helpers enforce `config/dashboard.yaml` node, edge, and counterparty caps before building Plotly figures for browser rendering.
+- Phase 6 keeps app and page language framed as suspicious indicators requiring human review, not confirmed fraud judgments.
 
 ## Verification Log
 
@@ -89,6 +93,19 @@ Completed for Phase 5 on 2026-06-22:
 - Phase 5 smoke manifest status: `phase5_complete`; `phase_status.phase5_okf` is `complete`; `stage_timings_seconds` includes `okf_export` and `okf_validate`; `artifact_paths` includes `okf_bundle`, `okf_manifest`, and `okf_validation_report`; OKF validation hard errors and warnings are both 0.
 - Note: PyArrow printed macOS sandbox CPU-cache detection warnings during the smoke run, but the command exited successfully and artifacts were created.
 
+Completed for Phase 6 on 2026-06-23:
+
+- `.venv/bin/pytest tests/test_dashboard.py -q` - passed; 10 dashboard tests passed, covering artifact loading without raw CSV reads, missing artifact handling, overview metrics, alert filters/download data, account investigation joins, graph cap enforcement, OKF summary/Markdown preview, page imports, render entrypoints, and script-style Streamlit import behavior.
+- `.venv/bin/pytest -q` - passed; 40 tests passed.
+- `.venv/bin/ruff check .` - passed; all checks passed.
+- `.venv/bin/python -m fraud_demo generate-data --rows 220 --output /private/tmp/fraud-sentinel-phase6-smoke.csv --seed 42` - passed; generated CSV and scenario manifest.
+- `.venv/bin/python -m fraud_demo run --input /private/tmp/fraud-sentinel-phase6-smoke.csv --run-id RUN_PHASE6_SMOKE --artifacts-dir /private/tmp/fraud-sentinel-phase6-artifacts --force` - passed; wrote Phase 2 through Phase 5 artifacts for dashboard QA, scored 145 accounts, generated 1 alert, identified 1 suspicious cluster, and generated 27 OKF concepts.
+- `rg -n "read_csv|requests|httpx|openai|anthropic|unbounded|graph_nodes\.to_dict" dashboard src/fraud_demo` - passed dashboard check; the only `read_csv` occurrence is Phase 2 ingestion in `src/fraud_demo/ingest.py`.
+- `.venv/bin/streamlit run dashboard/app.py --server.headless true --server.port 8501 --server.runOnSave false` - passed after local port approval; all app routes loaded `RUN_PHASE6_SMOKE` without tracebacks.
+- Browser QA passed for app, Overview, Alerts, Account Investigation, Network Explorer, OKF Knowledge Bundle, and Monitoring. Each route displayed the run, source fingerprint, human-review language, and no traceback. Network Explorer showed a pre-render capped graph (`Rendered nodes: 3`, `Rendered edges: 3`, `Limit: 500 / 5000`).
+- Visual QA screenshot captured at `/private/tmp/fraud-sentinel-phase6-network-explorer-final.png`; provenance identifiers wrap inside compact cards instead of truncating, and labels/values render on the light dashboard surface.
+- Note: PyArrow printed macOS sandbox CPU-cache detection warnings during the smoke run, but the command exited successfully and artifacts were created. The local Streamlit server required approved port binding under the sandbox.
+
 ## Next Phase
 
-Phase 6 should implement the Streamlit dashboard using the prepared Phase 5 artifacts as inputs.
+Phase 7 should implement monitoring rerun and delta logic after the Phase 6 dashboard.
