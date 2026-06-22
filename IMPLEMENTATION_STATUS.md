@@ -2,7 +2,7 @@
 
 ## Current Scope
 
-Phase 0 through Phase 8 for the Agentic AI mule-account fraud detection demo.
+Phase 0 through Phase 9 for the Agentic AI mule-account fraud detection demo.
 
 ## Phase Tracker
 
@@ -17,7 +17,7 @@ Phase 0 through Phase 8 for the Agentic AI mule-account fraud detection demo.
 | Phase 6: Dashboard | Complete | Streamlit app, cached prepared-artifact loading, overview, alert queue, account investigation, bounded network explorer, OKF bundle, monitoring pages, visual QA, and dashboard tests are implemented. |
 | Phase 7: Monitoring | Complete | File-based micro-batch monitor, processed-file state, retry/force behavior, full-snapshot recomputation, alert deltas, OKF monitoring log updates, dashboard delta helpers, CLI wiring, and tests are implemented. |
 | Phase 8: Performance and demo hardening | Complete | Benchmark report helper, smoke benchmark path, demo scripts, Makefile targets, fallback artifact documentation, run provenance hash hardening, and feature-engineering bottleneck fixes are implemented. |
-| Phase 9: Final verification | Not started | Planned after implementation phases. |
+| Phase 9: Final verification | Complete | Final setup, lint, test, one-million-row demo, monitoring, benchmark, OKF, dashboard artifact, safety, and generated-artifact checks completed. |
 
 ## Assessment Notes
 
@@ -58,6 +58,10 @@ Phase 0 through Phase 8 for the Agentic AI mule-account fraud detection demo.
 - Phase 8 amount reconciliation uses the normalized valid transaction amount sum because the current ingestion artifacts do not persist a separate raw-valid amount aggregate.
 - Phase 8 peak-memory capture is best effort through `/usr/bin/time`; the local smoke report recorded memory as unavailable under the current sandbox.
 - Phase 8 vectorizes hold-time proxy and reciprocal counterparty ratio feature calculations to remove per-account transaction filtering bottlenecks while preserving deterministic rule behavior.
+- Phase 9 final verification used Python 3.13.1, which satisfies the Python 3.12+ project floor.
+- Phase 9 generated local ignored data and artifacts for verification only. These outputs are not intended for commit and can be regenerated from the documented commands.
+- Phase 9 initially hit local disk exhaustion during the first `make run-demo` attempt with only about 127 MiB free on `/System/Volumes/Data`; after removing only generated ignored files from that failed attempt, the documented one-million-row path completed successfully.
+- Phase 9 peak-memory capture remained unavailable in both smoke and full benchmark reports under the current sandbox/tooling. Pipeline wall time and stage timings were recorded.
 
 ## Verification Log
 
@@ -152,6 +156,41 @@ Completed for Phase 8 on 2026-06-23:
 - The one-million-row benchmark was not run in this verification pass; the manual path is `make benchmark`, and the generated dataset/report/artifacts remain ignored by Git.
 - Note: PyArrow printed macOS sandbox CPU-cache detection warnings during Parquet reads/writes, but all commands exited successfully and artifacts were created.
 
+Completed for Phase 9 on 2026-06-23:
+
+- Preflight confirmed local `main` at `6ea631d Merge pull request #7 from khalilhimura/codex/phase-8-performance-hardening`; Phase 9 work was done on `codex/phase-9-final-verification`. Existing untracked `slides/` directories were left untouched.
+- `.venv/bin/python --version` - passed; reported Python 3.13.1.
+- `.venv/bin/python -m fraud_demo --help` - passed; listed `generate-data`, `profile`, `run`, `validate-okf`, and `monitor`.
+- `.venv/bin/pytest -q` - passed; 63 tests passed in 7.62 seconds.
+- `.venv/bin/ruff check .` - passed; all checks passed.
+- `make lint` - passed; `.venv/bin/python -m ruff check .` reported all checks passed.
+- `make test` - passed; 63 tests passed in 19.43 seconds.
+- `make benchmark-smoke` - passed; reused `/private/tmp/fraud-sentinel-benchmark-smoke.csv`, ran `RUN_BENCHMARK_SMOKE`, and wrote `/private/tmp/fraud-sentinel-benchmark-smoke-report.json`.
+- Smoke benchmark report verified: `raw_row_count` 1000, row reconciliation passed, amount reconciliation passed, alert reconciliation passed, OKF validation passed with 38 concepts and 0 hard errors, `pipeline_config_hash` populated, `pipeline_wall_seconds` 1.775562, and `peak_memory_kb` was `null` with source `unavailable`.
+- First `make demo-data` - passed; generated `data/raw/transactions_1m.csv` with 1,000,000 rows and a scenario manifest.
+- First `make run-demo` - failed during DuckDB scoring-table write with `No space left on device`; `df -h .` showed about 127 MiB available. Generated ignored files from that failed attempt were removed, freeing about 1.3 GiB before retry.
+- Retried `make demo-data` - passed; regenerated the one-million-row synthetic dataset.
+- Retried `make run-demo` - passed; `RUN_DEMO` processed 1,000,000 valid rows, rejected 0 rows, removed 0 duplicates, scored 249,935 accounts, generated 2 alerts, identified 2 clusters, generated 52 OKF concepts, and wrote `artifacts/runs/RUN_DEMO/run_manifest.json`.
+- `RUN_DEMO` stage timings: feature engineering 17.052920 seconds, scoring 67.096469 seconds, alert generation 3.876031 seconds, graph build 254.969670 seconds, clustering 1.478657 seconds, OKF export 8.514762 seconds, and OKF validation 0.067009 seconds.
+- `.venv/bin/python -m fraud_demo validate-okf --bundle artifacts/okf_bundle` after `RUN_DEMO` - passed; reported `OKF valid`, 52 concepts, 253 links, and 0 warnings.
+- `make demo-monitor` - passed; `RUN_MONITOR_DEMO` completed in 389.491 seconds, processed 1 file, skipped 0 files, recorded 250 new valid transactions, and wrote monitoring summary, alert changes, processed-file state, monitoring log, and OKF bundle log artifacts.
+- Phase 9 monitoring delta alert changes: `{"new": 1, "severity_increased": 0, "severity_decreased": 0, "unchanged": 2, "resolved_below_threshold": 0}`; OKF validation inside the monitoring demo passed with 64 concepts, 324 links, and 0 warnings.
+- `BENCHMARK_DATASET=data/raw/transactions_1m.csv BENCHMARK_ROWS=1000000 make benchmark` - passed; reused the one-million-row dataset, ran `RUN_BENCHMARK_full`, wrote `benchmark_report.json`, and reconciled 1,000,000 rows.
+- Full benchmark report verified: row reconciliation passed, amount reconciliation passed with normalized and valid amount sums both 556,324,346.23, alert reconciliation passed with 2 alerts and 249,935 account-risk rows, OKF validation passed with 52 concepts and 0 hard errors, `pipeline_wall_seconds` was 380.323804, `human_review_required` was `true`, and `external_model_api_calls` was `none`.
+- Full benchmark stage timings: feature engineering 17.172276 seconds, scoring 63.246595 seconds, alert generation 3.818966 seconds, graph build 257.627946 seconds, clustering 1.445940 seconds, OKF export 8.516952 seconds, and OKF validation 0.067445 seconds.
+- Full benchmark limitation: `peak_memory_kb` was `null` and `peak_memory_source` was `unavailable` because the sandboxed environment did not expose a supported memory measurement path.
+- `scripts/demo_run.sh` - passed after benchmark verification; regenerated fallback sample artifacts with `RUN_SAMPLE`, 25,000 valid rows, 4 alerts, 3 clusters, 38 OKF concepts, and validated the canonical OKF bundle.
+- Final `.venv/bin/python -m fraud_demo validate-okf --bundle artifacts/okf_bundle` - passed; reported `OKF valid`, 38 concepts, 172 links, and 0 warnings for the regenerated fallback demo bundle.
+- Dashboard artifact readiness check against `RUN_MONITOR_DEMO` loaded prepared artifacts directly, reported no missing artifacts, 1,000,250 valid rows, 3 high/critical alerts, bounded graph size of 50 nodes and 91 edges, 1 processed monitoring file, 250 new transactions, and 1 new alert.
+- Dashboard artifact readiness check against `RUN_SAMPLE` loaded prepared fallback artifacts directly, reported no missing artifacts, 25,000 valid rows, 4 high/critical alerts, bounded graph size of 23 nodes and 38 edges, and no graph truncation.
+- `rg -n "requests|httpx|openai|anthropic|api_key|http://|https://" src dashboard scripts tests Makefile pyproject.toml README.md` - passed with no matches; no external model/API calls were introduced.
+- `rg -n "read_csv" dashboard src/fraud_demo tests/test_dashboard.py scripts` - passed dashboard raw-CSV check; matches were limited to dashboard test guards, `scripts/demo_monitor_delta.sh` synthetic delta preparation, and Phase 2 ingestion in `src/fraud_demo/ingest.py`.
+- `rg -n "confirmed fraud|proves fraud|fraudster|human review|suspicious" README.md IMPLEMENTATION_STATUS.md src dashboard tests` - reviewed; user-facing language continues to frame outputs as suspicious indicators requiring human review and includes explicit not-confirmed-fraud wording.
+- `git diff --check` - passed with no whitespace errors.
+- Generated data, Parquet, DuckDB, OKF bundle contents, monitoring artifacts, and benchmark outputs were left untracked/ignored or removed from PR scope; the Phase 9 PR scope is documentation only.
+- Known limitations: local full-run verification needs several GiB of free disk for generated CSV, DuckDB, Parquet, and OKF artifacts; PyArrow prints sandbox CPU-cache `sysctlbyname` warnings during Parquet operations; peak memory is unavailable in benchmark reports under the current sandbox.
+- Final go/no-go: GO for the local deterministic demo with synthetic or approved anonymized data, prepared dashboard artifacts, bounded graph rendering, OKF export/validation, monitoring delta demo, and one-million-row benchmark evidence. Outputs remain suspicious indicators requiring human review, not confirmed fraud determinations.
+
 ## Next Phase
 
-Phase 9 should focus on final verification, including the manual one-million-row benchmark when demo hardware and time allow.
+All PRD implementation phases are complete. Next work should be demo operation, packaging, or presentation polish rather than core pipeline implementation.
