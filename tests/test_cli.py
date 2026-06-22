@@ -11,14 +11,51 @@ def test_cli_help_lists_required_commands():
         assert command in result.output
 
 
-def test_run_command_reports_phase_boundary(tmp_path):
+def test_generate_data_command_creates_csv_and_manifest(tmp_path):
+    output = tmp_path / "transactions.csv"
+
+    result = CliRunner().invoke(
+        app,
+        ["generate-data", "--rows", "100", "--output", str(output), "--seed", "42"],
+    )
+
+    assert result.exit_code == 0
+    assert output.exists()
+    assert output.with_suffix(".scenario_manifest.json").exists()
+    assert "100 rows" in result.output
+
+
+def test_run_command_creates_phase2_artifacts(tmp_path):
     source = tmp_path / "transactions.csv"
     source.write_text(
-        "transaction_id,event_timestamp,sender_account_id,receiver_account_id,amount,currency\n",
+        "\n".join(
+            [
+                "transaction_id,event_timestamp,sender_account_id,receiver_account_id,amount,currency",
+                "TX001,2026-01-01T00:00:00Z,ACC_A,ACC_B,10.50,MYR",
+                "TX002,2026-01-01T00:01:00Z,ACC_B,ACC_C,20.00,MYR",
+            ]
+        )
+        + "\n",
         encoding="utf-8",
     )
 
-    result = CliRunner().invoke(app, ["run", "--input", str(source), "--run-id", "RUN_TEST"])
+    result = CliRunner().invoke(
+        app,
+        [
+            "run",
+            "--input",
+            str(source),
+            "--run-id",
+            "RUN_TEST",
+            "--artifacts-dir",
+            str(tmp_path / "artifacts"),
+        ],
+    )
 
-    assert result.exit_code != 0
-    assert "Phase 2" in result.output
+    run_dir = tmp_path / "artifacts" / "runs" / "RUN_TEST"
+    assert result.exit_code == 0
+    assert "Phase 2 complete" in result.output
+    assert (run_dir / "normalized_transactions.parquet").exists()
+    assert (run_dir / "rejected_rows.parquet").exists()
+    assert (run_dir / "data_quality_report.json").exists()
+    assert (run_dir / "run_manifest.json").exists()

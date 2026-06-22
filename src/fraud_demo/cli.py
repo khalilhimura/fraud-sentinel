@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
 
 import typer
 
 from fraud_demo import __version__
-from fraud_demo.config import load_rules_config
+from fraud_demo.generate_data import generate_synthetic_transactions
+from fraud_demo.ingest import ingest_transactions
 from fraud_demo.logging import configure_logging
+from fraud_demo.manifests import build_phase2_manifest, write_run_manifest
+from fraud_demo.profile import profile_run
 
 app = typer.Typer(
     add_completion=False,
@@ -57,8 +61,11 @@ def generate_data(
 ) -> None:
     """Generate reproducible synthetic transactions."""
 
-    _ = (rows, output, seed)
-    _phase_exit("Synthetic data generation", 2)
+    result = generate_synthetic_transactions(rows=rows, output=output, seed=seed)
+    typer.echo(
+        f"Generated {result.row_count} rows at {result.output_path}. "
+        f"Scenario manifest: {result.scenario_manifest_path}"
+    )
 
 
 @app.command("profile")
@@ -74,11 +81,37 @@ def profile(
             help="Input transaction CSV.",
         ),
     ],
+    run_id: Annotated[
+        str | None,
+        typer.Option("--run-id", help="Profile run identifier."),
+    ] = None,
+    artifacts_dir: Annotated[
+        Path,
+        typer.Option("--artifacts-dir", help="Artifacts root directory."),
+    ] = Path("artifacts"),
+    force: Annotated[
+        bool,
+        typer.Option("--force", help="Allow replacing an existing profile run."),
+    ] = False,
 ) -> None:
     """Validate and profile a transaction CSV."""
 
-    _ = input_path
-    _phase_exit("CSV validation and profiling", 2)
+    actual_run_id = run_id or f"PROFILE_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}"
+    ingestion = ingest_transactions(
+        [input_path],
+        run_id=actual_run_id,
+        artifacts_dir=artifacts_dir,
+        force=force,
+    )
+    report = profile_run(ingestion.run_dir, ingestion.source_data_fingerprint)
+    manifest = build_phase2_manifest(ingestion, report)
+    manifest_path = write_run_manifest(ingestion.run_dir, manifest)
+    typer.echo(
+        f"Profile complete for {actual_run_id}. "
+        f"Valid rows: {ingestion.valid_row_count}. "
+        f"Rejected rows: {ingestion.rejected_row_count}. "
+        f"Manifest: {manifest_path}"
+    )
 
 
 @app.command("run")
@@ -95,6 +128,10 @@ def run_pipeline(
         ),
     ],
     run_id: Annotated[str, typer.Option("--run-id", help="Pipeline run identifier.")],
+    artifacts_dir: Annotated[
+        Path,
+        typer.Option("--artifacts-dir", help="Artifacts root directory."),
+    ] = Path("artifacts"),
     force: Annotated[
         bool,
         typer.Option("--force", help="Allow replacing an existing run."),
@@ -102,8 +139,22 @@ def run_pipeline(
 ) -> None:
     """Run the complete fraud analysis pipeline."""
 
-    _ = (input_path, run_id, force, load_rules_config())
-    _phase_exit("Complete pipeline execution", 2)
+    ingestion = ingest_transactions(
+        [input_path],
+        run_id=run_id,
+        artifacts_dir=artifacts_dir,
+        force=force,
+    )
+    report = profile_run(ingestion.run_dir, ingestion.source_data_fingerprint)
+    manifest = build_phase2_manifest(ingestion, report)
+    manifest_path = write_run_manifest(ingestion.run_dir, manifest)
+    typer.echo(
+        f"Phase 2 complete for {run_id}. "
+        f"Valid rows: {ingestion.valid_row_count}. "
+        f"Rejected rows: {ingestion.rejected_row_count}. "
+        f"Duplicate rows removed: {ingestion.duplicate_row_count}. "
+        f"Manifest: {manifest_path}"
+    )
 
 
 @app.command("validate-okf")
