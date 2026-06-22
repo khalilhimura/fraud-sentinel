@@ -12,6 +12,7 @@ import typer
 from fraud_demo import __version__
 from fraud_demo.alerts import generate_alerts
 from fraud_demo.clusters import identify_clusters
+from fraud_demo.config import canonical_yaml_hash
 from fraud_demo.features import compute_account_features
 from fraud_demo.generate_data import generate_synthetic_transactions
 from fraud_demo.graph_builder import build_graph_artifacts
@@ -120,6 +121,7 @@ def profile(
     )
     report = profile_run(ingestion.run_dir, ingestion.source_data_fingerprint)
     manifest = build_phase2_manifest(ingestion, report)
+    manifest["pipeline_config_hash"] = canonical_yaml_hash("config/pipeline.yaml")
     manifest_path = write_run_manifest(ingestion.run_dir, manifest)
     typer.echo(
         f"Profile complete for {actual_run_id}. "
@@ -162,6 +164,7 @@ def run_pipeline(
     )
     report = profile_run(ingestion.run_dir, ingestion.source_data_fingerprint)
     phase2_manifest = build_phase2_manifest(ingestion, report)
+    phase2_manifest["pipeline_config_hash"] = canonical_yaml_hash("config/pipeline.yaml")
 
     stage_timings: dict[str, float] = {}
     started_at = perf_counter()

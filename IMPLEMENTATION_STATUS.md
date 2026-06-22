@@ -2,7 +2,7 @@
 
 ## Current Scope
 
-Phase 0 through Phase 7 for the Agentic AI mule-account fraud detection demo.
+Phase 0 through Phase 8 for the Agentic AI mule-account fraud detection demo.
 
 ## Phase Tracker
 
@@ -16,7 +16,7 @@ Phase 0 through Phase 7 for the Agentic AI mule-account fraud detection demo.
 | Phase 5: OKF exporter and validator | Complete | OKF v0.1 bundle hierarchy, concept templates, relative Markdown links, typed relation frontmatter extension, validator, CLI wiring, manifest updates, and validation reports are implemented. |
 | Phase 6: Dashboard | Complete | Streamlit app, cached prepared-artifact loading, overview, alert queue, account investigation, bounded network explorer, OKF bundle, monitoring pages, visual QA, and dashboard tests are implemented. |
 | Phase 7: Monitoring | Complete | File-based micro-batch monitor, processed-file state, retry/force behavior, full-snapshot recomputation, alert deltas, OKF monitoring log updates, dashboard delta helpers, CLI wiring, and tests are implemented. |
-| Phase 8: Performance and demo hardening | Not started | Planned after MVP pipeline. |
+| Phase 8: Performance and demo hardening | Complete | Benchmark report helper, smoke benchmark path, demo scripts, Makefile targets, fallback artifact documentation, run provenance hash hardening, and feature-engineering bottleneck fixes are implemented. |
 | Phase 9: Final verification | Not started | Planned after implementation phases. |
 
 ## Assessment Notes
@@ -53,6 +53,11 @@ Phase 0 through Phase 7 for the Agentic AI mule-account fraud detection demo.
 - Phase 7 compares alerts by stable `account_id` because alert IDs include run IDs.
 - Phase 7 `new_transaction_count` counts valid normalized rows from eligible inbox files after cross-file transaction ID deduplication.
 - Ingestion accepts mixed valid timestamp formats so prior snapshot CSV timestamps and incoming ISO/Z timestamps can be processed together.
+- Phase 8 keeps the full one-million-row benchmark manual and outside the default test suite. `make benchmark-smoke` is the quick local/CI path.
+- Phase 8 benchmark reports validate persisted artifact counts, alert-to-risk references, high/critical alert evidence, OKF hard errors, stage timings, config hashes, source fingerprints, and artifact paths.
+- Phase 8 amount reconciliation uses the normalized valid transaction amount sum because the current ingestion artifacts do not persist a separate raw-valid amount aggregate.
+- Phase 8 peak-memory capture is best effort through `/usr/bin/time`; the local smoke report recorded memory as unavailable under the current sandbox.
+- Phase 8 vectorizes hold-time proxy and reciprocal counterparty ratio feature calculations to remove per-account transaction filtering bottlenecks while preserving deterministic rule behavior.
 
 ## Verification Log
 
@@ -128,6 +133,25 @@ Completed for Phase 7 on 2026-06-23:
 - `rg -n "requests|httpx|openai|anthropic|api_key|read_csv" src/fraud_demo dashboard tests` - passed safety scan; no external model/API calls were introduced. Production `read_csv` remains limited to ingestion; dashboard `read_csv` occurrences are test guards only.
 - Note: PyArrow printed macOS sandbox CPU-cache detection warnings during Parquet reads/writes, but all commands exited successfully and artifacts were created.
 
+Completed for Phase 8 on 2026-06-23:
+
+- `docs/superpowers/specs/2026-06-23-phase-8-performance-hardening-design.md` and `docs/superpowers/plans/2026-06-23-phase-8-performance-hardening.md` were added before implementation.
+- `.venv/bin/pytest tests/test_benchmarking.py -q` - passed; 6 benchmark/demo hardening tests passed for report fields, deterministic write behavior, row reconciliation failure, alert reference failure, OKF hard-error failure, benchmark smoke target assumptions, and demo operating-flow assumptions.
+- `.venv/bin/pytest tests/test_features.py -q` - passed; 3 feature tests passed after vectorizing hold-time proxy and reciprocal counterparty ratio calculations.
+- `.venv/bin/pytest -q` - passed; 63 tests passed.
+- `.venv/bin/ruff check .` - passed; all checks passed.
+- `bash -n scripts/benchmark.sh scripts/demo_setup.sh scripts/demo_run.sh scripts/demo_monitor_delta.sh` - passed; demo and benchmark scripts are syntactically valid.
+- `make benchmark-smoke` - passed; reused `/private/tmp/fraud-sentinel-benchmark-smoke.csv`, ran `RUN_BENCHMARK_SMOKE`, and wrote `/private/tmp/fraud-sentinel-benchmark-smoke-report.json`.
+- Smoke benchmark report fields verified: `raw_row_count` 1000, row reconciliation passed, OKF validation passed with 38 concepts and 0 hard errors, `pipeline_config_hash` populated, `pipeline_wall_seconds` 1.599683, `feature_engineering` 0.083298 seconds, and `peak_memory_kb` was `null` with source `unavailable`.
+- `.venv/bin/python -m fraud_demo run --input /private/tmp/fraud-sentinel-phase8-full-smoke.csv --run-id RUN_PHASE8_SMOKE --artifacts-dir /private/tmp/fraud-sentinel-phase8-artifacts --force` - passed; processed 260 valid rows, generated 1 alert, identified 1 suspicious cluster, generated 27 OKF concepts, and wrote the run manifest.
+- `.venv/bin/python -m fraud_demo monitor --inbox /private/tmp/fraud-sentinel-phase8-inbox-verify --artifacts-dir /private/tmp/fraud-sentinel-phase8-artifacts --run-id RUN_PHASE8_MONITOR --force` - passed; processed 1 file, skipped 0, recorded 80 new valid transactions, and wrote monitoring delta artifacts.
+- Phase 8 monitoring smoke alert changes: `{"new": 1, "severity_increased": 0, "severity_decreased": 0, "unchanged": 1, "resolved_below_threshold": 0}`.
+- `.venv/bin/python -m fraud_demo validate-okf --bundle artifacts/okf_bundle` - passed; reported `OKF valid`, 36 concepts, 141 links, and 0 warnings.
+- `rg -n "requests|httpx|openai|anthropic|api_key|http://|https://" src dashboard scripts tests Makefile pyproject.toml README.md` - passed safety scan with no matches; no external model/API calls were introduced.
+- `rg -n "read_csv" dashboard src/fraud_demo tests/test_dashboard.py scripts` - passed dashboard raw-CSV check; production `read_csv` remains limited to ingestion, `scripts/demo_monitor_delta.sh` prefixes synthetic demo deltas, and dashboard occurrences are test guards only.
+- The one-million-row benchmark was not run in this verification pass; the manual path is `make benchmark`, and the generated dataset/report/artifacts remain ignored by Git.
+- Note: PyArrow printed macOS sandbox CPU-cache detection warnings during Parquet reads/writes, but all commands exited successfully and artifacts were created.
+
 ## Next Phase
 
-Phase 8 should focus on performance and demo hardening after the Phase 7 monitoring implementation.
+Phase 9 should focus on final verification, including the manual one-million-row benchmark when demo hardware and time allow.
