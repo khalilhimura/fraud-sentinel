@@ -1,8 +1,31 @@
 ---
-type: Fraud Signal
+{{ frontmatter }}
 ---
 
-# Signal Placeholder
+# {{ title | safe_text }}
 
-Scheduled for Phase 5.
+## Rule Definition
 
+{{ description }}
+
+- Rule ID: `{{ rule_id | safe_text }}`
+- Weight: **{{ weight }}**
+- Provenance: {{ run_link }}
+
+## Required Features
+
+{% for feature in required_features %}
+- `{{ feature }}`
+{% else %}
+- No required features were configured.
+{% endfor %}
+
+## Thresholds
+
+| Field | Value |
+|---|---|
+{% for key, value in thresholds.items() %}
+| `{{ key | safe_text }}` | {{ value }} |
+{% else %}
+| None | None |
+{% endfor %}

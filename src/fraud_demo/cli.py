@@ -21,8 +21,11 @@ from fraud_demo.manifests import (
     build_phase2_manifest,
     build_phase3_manifest,
     build_phase4_manifest,
+    build_phase5_manifest,
     write_run_manifest,
 )
+from fraud_demo.okf_exporter import export_okf_bundle
+from fraud_demo.okf_validator import validate_okf_bundle
 from fraud_demo.profile import profile_run
 from fraud_demo.scoring import score_accounts
 
@@ -194,15 +197,42 @@ def run_pipeline(
         cluster_result,
         stage_timings,
     )
+    write_run_manifest(ingestion.run_dir, manifest)
+
+    started_at = perf_counter()
+    export_result = export_okf_bundle(ingestion.run_dir)
+    stage_timings["okf_export"] = round(perf_counter() - started_at, 6)
+
+    started_at = perf_counter()
+    validation_result = validate_okf_bundle(
+        export_result.bundle_path,
+        report_path=ingestion.run_dir / "okf_validation_report.json",
+    )
+    stage_timings["okf_validate"] = round(perf_counter() - started_at, 6)
+
+    manifest = build_phase5_manifest(
+        manifest,
+        export_result,
+        validation_result,
+        stage_timings,
+    )
     manifest_path = write_run_manifest(ingestion.run_dir, manifest)
+    if not validation_result.valid:
+        typer.echo(
+            f"OKF validation failed for {run_id}. "
+            f"Hard errors: {len(validation_result.hard_errors)}. "
+            f"Report: {validation_result.report_path}"
+        )
+        raise typer.Exit(1)
     typer.echo(
-        f"Phase 4 complete for {run_id}. "
+        f"Phase 5 complete for {run_id}. "
         f"Valid rows: {ingestion.valid_row_count}. "
         f"Rejected rows: {ingestion.rejected_row_count}. "
         f"Duplicate rows removed: {ingestion.duplicate_row_count}. "
         f"Accounts scored: {feature_result.account_count}. "
         f"Alerts: {alert_result.alert_count}. "
         f"Clusters: {cluster_result.cluster_count}. "
+        f"OKF concepts: {export_result.concept_count}. "
         f"Manifest: {manifest_path}"
     )
 
@@ -213,8 +243,18 @@ def validate_okf(
 ) -> None:
     """Validate an existing OKF bundle."""
 
-    _ = bundle
-    _phase_exit("OKF validation", 5)
+    result = validate_okf_bundle(bundle)
+    if result.valid:
+        typer.echo(
+            f"OKF valid. Concepts: {result.concept_count}. "
+            f"Links: {result.link_count}. Warnings: {len(result.warnings)}."
+        )
+        return
+    typer.echo(
+        f"OKF invalid. Hard errors: {len(result.hard_errors)}. "
+        f"Warnings: {len(result.warnings)}."
+    )
+    raise typer.Exit(1)
 
 
 @app.command("monitor")

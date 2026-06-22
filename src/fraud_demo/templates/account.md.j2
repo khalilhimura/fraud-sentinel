@@ -1,8 +1,52 @@
 ---
-type: Fraud Account
+{{ frontmatter }}
 ---
 
-# Account Placeholder
+# Account {{ account_id | safe_text }}
 
-Scheduled for Phase 5.
+## Risk Summary
 
+This account is a suspicious indicator that requires human review. It is not a confirmed fraud judgment and should not be used for an account decision without analyst review.
+
+- Risk level: **{{ risk_level }}**
+- Risk score: **{{ risk_score }}**
+
+## Triggered Signals
+
+{% if links.signals %}
+{% for link in links.signals %}
+- {{ link }}
+{% endfor %}
+{% else %}
+- No triggered signal links were exported for this account.
+{% endif %}
+
+## Evidence
+
+| Signal | Observed values | Thresholds | Explanation |
+|---|---|---|---|
+{% for item in evidence %}
+| {{ item.rule_label }} | {{ item.feature_values }} | {{ item.thresholds }} | {{ item.explanation }} |
+{% else %}
+| None | None | None | No triggered evidence rows were exported. |
+{% endfor %}
+
+## Connected Accounts
+
+{% if links.connected_accounts %}
+{% for link in links.connected_accounts %}
+- {{ link }}
+{% endfor %}
+{% else %}
+- No bounded connected account links were exported.
+{% endif %}
+
+## Related Concepts
+
+{% for link in links.alerts %}
+- {{ link }}
+{% endfor %}
+{% for link in links.clusters %}
+- {{ link }}
+{% endfor %}
+- {{ runbook_link }}

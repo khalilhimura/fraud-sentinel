@@ -140,3 +140,47 @@ def build_phase4_manifest(
         }
     )
     return manifest
+
+
+def build_phase5_manifest(
+    phase4_manifest: dict[str, Any],
+    export_result: Any,
+    validation_result: Any,
+    stage_timings_seconds: dict[str, float],
+) -> dict[str, Any]:
+    """Extend a Phase 4 manifest with Phase 5 OKF export and validation artifacts."""
+
+    manifest = dict(phase4_manifest)
+    artifact_paths = dict(manifest.get("artifact_paths", {}))
+    artifact_paths.update(
+        {
+            "okf_bundle": str(export_result.bundle_path),
+            "okf_manifest": str(export_result.okf_manifest_path),
+        }
+    )
+    if validation_result.report_path is not None:
+        artifact_paths["okf_validation_report"] = str(validation_result.report_path)
+
+    phase_status = dict(manifest.get("phase_status", {}))
+    phase_status["phase5_okf"] = "complete" if validation_result.valid else "failed"
+
+    timings = dict(manifest.get("stage_timings_seconds", {}))
+    timings.update(stage_timings_seconds)
+
+    manifest.update(
+        {
+            "status": "phase5_complete" if validation_result.valid else "phase5_failed",
+            "completed_at": datetime.now(UTC).isoformat(),
+            "okf_concept_count": export_result.concept_count,
+            "okf_account_count": export_result.account_count,
+            "okf_alert_count": export_result.alert_count,
+            "okf_cluster_count": export_result.cluster_count,
+            "okf_validation_valid": bool(validation_result.valid),
+            "okf_validation_warning_count": len(validation_result.warnings),
+            "okf_validation_hard_error_count": len(validation_result.hard_errors),
+            "stage_timings_seconds": timings,
+            "phase_status": phase_status,
+            "artifact_paths": artifact_paths,
+        }
+    )
+    return manifest
