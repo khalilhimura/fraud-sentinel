@@ -1,0 +1,68 @@
+version: "1.0"
+alert_min_score: 50
+severity_bands:
+  low: [0, 24]
+  medium: [25, 49]
+  high: [50, 74]
+  critical: [75, 100]
+rules:
+  high_fan_in:
+    enabled: true
+    weight: 20
+    description: Many unique senders transferred to one account.
+    required_features: [unique_senders_7d]
+    thresholds:
+      unique_senders_7d: 10
+  rapid_pass_through:
+    enabled: true
+    weight: 25
+    description: Most incoming value was moved out within a short interval.
+    required_features: [pass_through_ratio_7d, hold_time_proxy_minutes]
+    thresholds:
+      pass_through_ratio_7d: 0.80
+      hold_time_proxy_minutes_max: 120
+  high_velocity:
+    enabled: true
+    weight: 15
+    description: Transaction count was high within 24 hours.
+    required_features: [incoming_count_24h, outgoing_count_24h]
+    thresholds:
+      total_count_24h: 30
+  high_fan_out:
+    enabled: true
+    weight: 10
+    description: Funds were sent to many distinct downstream accounts.
+    required_features: [unique_receivers_7d]
+    thresholds:
+      unique_receivers_7d: 10
+  shared_access_point:
+    enabled: true
+    weight: 15
+    description: The account shared a device or IP with multiple accounts.
+    required_features: [shared_device_account_count_30d, shared_ip_account_count_30d]
+    thresholds:
+      shared_accounts: 4
+  cross_border_funnel:
+    enabled: true
+    weight: 10
+    description: Significant incoming activity was followed by cross-border outgoing transfers.
+    required_features: [incoming_amount_7d, cross_border_out_ratio_7d]
+    thresholds:
+      incoming_amount_7d: 10000
+      cross_border_out_ratio_7d: 0.50
+  new_account_burst:
+    enabled: true
+    weight: 15
+    description: A recently opened account showed abrupt high activity.
+    required_features: [account_age_days, incoming_count_24h, outgoing_count_24h]
+    thresholds:
+      account_age_days_max: 30
+      total_count_24h: 20
+  short_cycle:
+    enabled: true
+    weight: 20
+    description: The account participated in a short directed transfer cycle.
+    required_features: [short_cycle_flag]
+    thresholds:
+      max_cycle_length: 5
+

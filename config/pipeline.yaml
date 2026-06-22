@@ -1,0 +1,18 @@
+version: "1.0"
+timezone: Asia/Kuala_Lumpur
+artifacts_dir: artifacts
+run_id_prefix: RUN
+required_columns:
+  - transaction_id
+  - event_timestamp
+  - sender_account_id
+  - receiver_account_id
+  - amount
+  - currency
+windows:
+  recent_hours: 24
+  recent_days: 7
+  shared_access_days: 30
+privacy:
+  redact_free_text_in_rejections: true
+

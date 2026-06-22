@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fraud-sentinel"
+version = "0.1.0"
+description = "Deterministic mule-account fraud detection demo with OKF knowledge graph export."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "duckdb>=1.0",
+  "jinja2>=3.1",
+  "networkx>=3.3",
+  "pandas>=2.2",
+  "pydantic>=2.7",
+  "pyarrow>=16.0",
+  "pyyaml>=6.0",
+  "typer>=0.12",
+]
+
+[project.optional-dependencies]
+dashboard = [
+  "plotly>=5.22",
+  "streamlit>=1.36",
+]
+dev = [
+  "pytest>=8.2",
+  "ruff>=0.5",
+]
+
+[project.scripts]
+fraud-demo = "fraud_demo.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+fraud_demo = ["templates/*.j2"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+

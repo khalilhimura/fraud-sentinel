@@ -1,0 +1,34 @@
+version: "0.1"
+bundle_name: Mule Account Fraud Knowledge Graph
+output_dir: artifacts/okf_bundle
+link_style: relative
+include_root_version_frontmatter: true
+generate_index_files: true
+generate_log_files: true
+include_typed_relations_extension: true
+export_limits:
+  max_accounts: 500
+  max_alerts: 500
+  max_clusters: 100
+  max_devices: 200
+  max_ips: 200
+  max_counterparties_per_account: 30
+  max_sample_transactions_per_alert: 20
+privacy:
+  pseudonymize_account_ids: false
+  pseudonymize_device_ids: true
+  pseudonymize_ip_addresses: true
+  include_transaction_descriptions: false
+  include_customer_pii: false
+concept_types:
+  account: Fraud Account
+  alert: Fraud Alert
+  cluster: Fraud Cluster
+  signal: Fraud Signal
+  device: Fraud Device
+  ip: Fraud IP Address
+  metric: Fraud Metric
+  run: Fraud Pipeline Run
+  dataset: Fraud Dataset
+  runbook: Fraud Runbook
+

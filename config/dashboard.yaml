@@ -1,0 +1,9 @@
+version: "1.0"
+default_artifacts_dir: artifacts
+default_okf_bundle: artifacts/okf_bundle
+cache_ttl_seconds: 60
+network_limits:
+  max_nodes: 500
+  max_edges: 5000
+  max_counterparties_per_account: 30
+
