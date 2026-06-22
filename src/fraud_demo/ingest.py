@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
 
+import duckdb
 import pandas as pd
 
 from fraud_demo.config import file_sha256
@@ -55,6 +56,7 @@ class IngestionResult:
     run_dir: Path
     normalized_path: Path
     rejected_path: Path
+    duckdb_path: Path
     valid_row_count: int
     rejected_row_count: int
     duplicate_row_count: int
@@ -118,6 +120,8 @@ def _prepare_run_dir(run_dir: Path, force: bool) -> None:
             "data_quality_report.json",
             "run_manifest.json",
             "ingestion_summary.json",
+            "transactions.duckdb",
+            "transactions.duckdb.wal",
         ]:
             artifact_path = run_dir / artifact_name
             if artifact_path.exists():
@@ -194,14 +198,27 @@ def ingest_transactions(
 
     normalized_path = run_dir / "normalized_transactions.parquet"
     rejected_path = run_dir / "rejected_rows.parquet"
+    duckdb_path = run_dir / "transactions.duckdb"
     valid.to_parquet(normalized_path, index=False)
-    pd.DataFrame(rejection_rows, columns=REJECTED_COLUMNS).to_parquet(rejected_path, index=False)
+    rejected = pd.DataFrame(rejection_rows, columns=REJECTED_COLUMNS)
+    rejected.to_parquet(rejected_path, index=False)
+
+    with duckdb.connect(str(duckdb_path)) as connection:
+        connection.register("normalized_df", valid)
+        connection.register("rejected_df", rejected)
+        connection.execute(
+            "create or replace table normalized_transactions as select * from normalized_df"
+        )
+        connection.execute("create or replace table rejected_rows as select * from rejected_df")
+        connection.unregister("normalized_df")
+        connection.unregister("rejected_df")
 
     result = IngestionResult(
         run_id=run_id,
         run_dir=run_dir,
         normalized_path=normalized_path,
         rejected_path=rejected_path,
+        duckdb_path=duckdb_path,
         valid_row_count=int(len(valid)),
         rejected_row_count=int(invalid_mask.sum()),
         duplicate_row_count=int(duplicate_mask.sum()),
@@ -220,6 +237,7 @@ def ingest_transactions(
         "source_files": result.source_files,
         "source_file_fingerprints": result.source_file_fingerprints,
         "source_data_fingerprint": result.source_data_fingerprint,
+        "duckdb_path": str(result.duckdb_path),
     }
     (run_dir / "ingestion_summary.json").write_text(
         json.dumps(summary, indent=2, sort_keys=True) + "\n",

@@ -47,6 +47,7 @@ def build_phase2_manifest(
         "artifact_paths": {
             "normalized_transactions": str(ingestion.normalized_path),
             "rejected_rows": str(ingestion.rejected_path),
+            "duckdb_database": str(ingestion.duckdb_path),
             "data_quality_report": str(profile_report["report_path"]),
             "ingestion_summary": str(ingestion.run_dir / "ingestion_summary.json"),
             "run_manifest": str(ingestion.run_dir / "run_manifest.json"),

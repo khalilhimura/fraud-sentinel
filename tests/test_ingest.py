@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import duckdb
 import pandas as pd
 import pytest
 
@@ -64,6 +65,16 @@ def test_ingest_transactions_normalizes_rejects_and_deduplicates(tmp_path: Path)
 
     normalized = pd.read_parquet(result.normalized_path)
     rejected = pd.read_parquet(result.rejected_path)
+    assert result.duckdb_path.exists()
+    with duckdb.connect(str(result.duckdb_path), read_only=True) as connection:
+        table_counts = connection.execute(
+            """
+            select
+              (select count(*) from normalized_transactions) as normalized_count,
+              (select count(*) from rejected_rows) as rejected_count
+            """
+        ).fetchone()
+    assert table_counts == (1, 4)
 
     assert result.valid_row_count == 1
     assert result.rejected_row_count == 3
