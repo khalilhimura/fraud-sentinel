@@ -11,13 +11,16 @@ import typer
 
 from fraud_demo import __version__
 from fraud_demo.alerts import generate_alerts
+from fraud_demo.clusters import identify_clusters
 from fraud_demo.features import compute_account_features
 from fraud_demo.generate_data import generate_synthetic_transactions
+from fraud_demo.graph_builder import build_graph_artifacts
 from fraud_demo.ingest import ingest_transactions
 from fraud_demo.logging import configure_logging
 from fraud_demo.manifests import (
     build_phase2_manifest,
     build_phase3_manifest,
+    build_phase4_manifest,
     write_run_manifest,
 )
 from fraud_demo.profile import profile_run
@@ -169,21 +172,37 @@ def run_pipeline(
     alert_result = generate_alerts(ingestion.run_dir)
     stage_timings["alert_generation"] = round(perf_counter() - started_at, 6)
 
-    manifest = build_phase3_manifest(
+    phase3_manifest = build_phase3_manifest(
         phase2_manifest,
         feature_result,
         scoring_result,
         alert_result,
         stage_timings,
     )
+
+    started_at = perf_counter()
+    graph_result = build_graph_artifacts(ingestion.run_dir)
+    stage_timings["graph_build"] = round(perf_counter() - started_at, 6)
+
+    started_at = perf_counter()
+    cluster_result = identify_clusters(ingestion.run_dir)
+    stage_timings["clustering"] = round(perf_counter() - started_at, 6)
+
+    manifest = build_phase4_manifest(
+        phase3_manifest,
+        graph_result,
+        cluster_result,
+        stage_timings,
+    )
     manifest_path = write_run_manifest(ingestion.run_dir, manifest)
     typer.echo(
-        f"Phase 3 complete for {run_id}. "
+        f"Phase 4 complete for {run_id}. "
         f"Valid rows: {ingestion.valid_row_count}. "
         f"Rejected rows: {ingestion.rejected_row_count}. "
         f"Duplicate rows removed: {ingestion.duplicate_row_count}. "
         f"Accounts scored: {feature_result.account_count}. "
         f"Alerts: {alert_result.alert_count}. "
+        f"Clusters: {cluster_result.cluster_count}. "
         f"Manifest: {manifest_path}"
     )
 

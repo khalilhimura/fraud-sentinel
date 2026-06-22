@@ -104,3 +104,39 @@ def build_phase3_manifest(
         }
     )
     return manifest
+
+
+def build_phase4_manifest(
+    phase3_manifest: dict[str, Any],
+    graph_result: Any,
+    cluster_result: Any,
+    stage_timings_seconds: dict[str, float],
+) -> dict[str, Any]:
+    """Extend a Phase 3 manifest with Phase 4 graph and cluster artifacts."""
+
+    manifest = dict(phase3_manifest)
+    artifact_paths = dict(manifest.get("artifact_paths", {}))
+    artifact_paths.update(
+        {
+            "graph_nodes": str(cluster_result.graph_nodes_path),
+            "graph_edges": str(cluster_result.graph_edges_path),
+            "clusters": str(cluster_result.clusters_path),
+        }
+    )
+    phase_status = dict(manifest.get("phase_status", {}))
+    phase_status["phase4_graph_clusters"] = "complete"
+
+    timings = dict(manifest.get("stage_timings_seconds", {}))
+    timings.update(stage_timings_seconds)
+
+    manifest.update(
+        {
+            "status": "phase4_complete",
+            "completed_at": datetime.now(UTC).isoformat(),
+            "cluster_count": cluster_result.cluster_count,
+            "stage_timings_seconds": timings,
+            "phase_status": phase_status,
+            "artifact_paths": artifact_paths,
+        }
+    )
+    return manifest
