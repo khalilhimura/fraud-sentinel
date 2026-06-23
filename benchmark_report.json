@@ -1,0 +1,76 @@
+{
+  "alert_reconciliation": {
+    "account_risk_count": 249935,
+    "alert_count": 2,
+    "high_critical_alerts_without_evidence": [],
+    "missing_account_risk_accounts": [],
+    "passed": true
+  },
+  "amount_reconciliation": {
+    "absolute_difference": 0.0,
+    "normalized_amount_sum": 556324346.23,
+    "passed": true,
+    "valid_amount_sum": 556324346.23
+  },
+  "artifact_paths": {
+    "account_features": "artifacts/runs/RUN_BENCHMARK_full/account_features.parquet",
+    "account_risk": "artifacts/runs/RUN_BENCHMARK_full/account_risk.parquet",
+    "alerts": "artifacts/runs/RUN_BENCHMARK_full/alerts.parquet",
+    "clusters": "artifacts/runs/RUN_BENCHMARK_full/clusters.parquet",
+    "data_quality_report": "artifacts/runs/RUN_BENCHMARK_full/data_quality_report.json",
+    "duckdb_database": "artifacts/runs/RUN_BENCHMARK_full/transactions.duckdb",
+    "graph_edges": "artifacts/runs/RUN_BENCHMARK_full/graph_edges.parquet",
+    "graph_nodes": "artifacts/runs/RUN_BENCHMARK_full/graph_nodes.parquet",
+    "ingestion_summary": "artifacts/runs/RUN_BENCHMARK_full/ingestion_summary.json",
+    "normalized_transactions": "artifacts/runs/RUN_BENCHMARK_full/normalized_transactions.parquet",
+    "okf_bundle": "artifacts/okf_bundle",
+    "okf_manifest": "artifacts/okf_bundle/okf_manifest.json",
+    "okf_validation_report": "artifacts/runs/RUN_BENCHMARK_full/okf_validation_report.json",
+    "rejected_rows": "artifacts/runs/RUN_BENCHMARK_full/rejected_rows.parquet",
+    "rule_evidence": "artifacts/runs/RUN_BENCHMARK_full/rule_evidence.parquet",
+    "run_manifest": "artifacts/runs/RUN_BENCHMARK_full/run_manifest.json"
+  },
+  "artifacts_dir": "artifacts",
+  "benchmark_mode": "full",
+  "dataset_generated": true,
+  "dataset_path": "data/raw/transactions_1000000.csv",
+  "external_model_api_calls": "none",
+  "generated_at": "2026-06-23T04:07:08.689266+00:00",
+  "human_review_required": true,
+  "okf_validation": {
+    "concept_count": 52,
+    "hard_error_count": 0,
+    "link_count": 253,
+    "passed": true,
+    "valid": true,
+    "warning_count": 0
+  },
+  "peak_memory_kb": 3511248,
+  "peak_memory_source": "/usr/bin/time -l",
+  "pipeline_config_hash": "529e0ac8f672edba7a2532fcc006186fe249203a1289cf6b7dbe17e39eeabcb0",
+  "pipeline_wall_seconds": 385.1834,
+  "row_reconciliation": {
+    "duplicate_row_count": 0,
+    "passed": true,
+    "raw_row_count": 1000000,
+    "reconciled_row_count": 1000000,
+    "rejected_row_count": 0,
+    "valid_row_count": 1000000
+  },
+  "row_target": 1000000,
+  "rules_config_hash": "76858654634ba7f6c40b457990101d080ba2767c8a5d8d10d55db43b82eb72b5",
+  "run_dir": "artifacts/runs/RUN_BENCHMARK_full",
+  "run_id": "RUN_BENCHMARK_full",
+  "run_manifest_path": "artifacts/runs/RUN_BENCHMARK_full/run_manifest.json",
+  "schema_version": "1.0",
+  "source_data_fingerprint": "95b9a6cdb46e84736eba042609b0a53b8da26e70ea5aa73c90216141167bc8a0",
+  "stage_timings_seconds": {
+    "alert_generation": 3.609059,
+    "clustering": 1.452261,
+    "feature_engineering": 15.775968,
+    "graph_build": 269.263367,
+    "okf_export": 7.949603,
+    "okf_validate": 0.0662,
+    "scoring": 60.057808
+  }
+}
