@@ -3,7 +3,7 @@ VENV ?= .venv
 VENV_PYTHON := $(VENV)/bin/python
 VENV_PIP := $(VENV)/bin/pip
 
-.PHONY: setup lint test demo-data sample-data run-sample run-demo demo-prepare demo-monitor validate-okf dashboard benchmark benchmark-smoke clean-generated
+.PHONY: setup lint test demo-data sample-data run-sample run-demo demo-prepare demo-monitor validate-okf dashboard table-viewer benchmark benchmark-smoke clean-generated
 
 setup:
 	$(PYTHON) -m venv $(VENV)
@@ -39,6 +39,9 @@ validate-okf:
 
 dashboard:
 	$(VENV_PYTHON) -m streamlit run dashboard/app.py
+
+table-viewer:
+	$(VENV_PYTHON) -m streamlit run dashboard/duckdb_table_viewer.py
 
 benchmark:
 	PYTHON_BIN=$(VENV_PYTHON) scripts/benchmark.sh

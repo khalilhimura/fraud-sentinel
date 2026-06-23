@@ -61,6 +61,14 @@ make dashboard
 
 The Streamlit dashboard reads prepared Parquet, JSON, and OKF Markdown artifacts. It does not load raw CSV files on normal page render.
 
+For a quick local interactive table over the sample DuckDB artifact:
+
+```bash
+make table-viewer
+```
+
+The standalone viewer defaults to `artifacts/runs/RUN_SAMPLE/transactions.duckdb` and reads local DuckDB tables only.
+
 ## Benchmarking
 
 Run a quick smoke benchmark outside the default pytest suite:

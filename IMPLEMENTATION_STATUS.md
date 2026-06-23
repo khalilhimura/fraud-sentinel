@@ -194,3 +194,20 @@ Completed for Phase 9 on 2026-06-23:
 ## Next Phase
 
 All PRD implementation phases are complete. Next work should be demo operation, packaging, or presentation polish rather than core pipeline implementation.
+
+## Post-Phase Demo Polish
+
+Completed on 2026-06-23:
+
+- Added a standalone Streamlit DuckDB table viewer at `dashboard/duckdb_table_viewer.py` for quick local inspection of `artifacts/runs/RUN_SAMPLE/transactions.duckdb`.
+- Added `src/fraud_demo/duckdb_viewer.py` helper functions for listing tables, describing a table, and loading bounded searchable previews from a local DuckDB file.
+- Added `make table-viewer` and README usage notes.
+- `.venv/bin/pytest tests/test_duckdb_viewer.py -q` - passed; 2 tests passed.
+- `.venv/bin/pytest -q` - passed; 65 tests passed.
+- `.venv/bin/ruff check .` - passed; all checks passed.
+- Helper smoke check against `RUN_SAMPLE` listed 9 DuckDB tables and previewed 5 of 25,000 normalized transaction rows.
+
+Assumptions:
+
+- The viewer is a local demo convenience and not a new fraud-detection phase.
+- The viewer reads local generated DuckDB artifacts only and does not call external services.
